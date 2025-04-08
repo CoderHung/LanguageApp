@@ -1,23 +1,52 @@
-import { TouchableOpacity, Text,TextInput, StyleSheet, View } from 'react-native';
+import { TouchableOpacity, Text, TextInput, StyleSheet, View } from 'react-native';
 import React from 'react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Drawer } from 'expo-router/drawer';
 import { FontAwesome } from '@expo/vector-icons';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { DrawerContentScrollView, DrawerItem } from '@react-navigation/drawer';
 import { router, Link } from 'expo-router';
 import { Image } from 'expo-image';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// Initialize AsyncStorage values
+const initializeAsyncStorage = async () => {
+  try {
+    await AsyncStorage.multiSet([
+      ['@current_tab_screen', ''],
+      ['@search_term', ''],
+      ['@is_searching', 'false']
+    ]);
+  } catch (e) {
+    console.error('Error initializing AsyncStorage:', e);
+  }
+};
 
 const HeaderButtons = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   
-  const handleSearchSubmit = () => {
-    if (searchQuery.trim()) {
-      router.push(`/search/${searchQuery.trim()}`);
+  const handleSearchSubmit = async () => {
+    try {
+      if (searchQuery.trim()) {
+        // Get current tab screen
+        const currentTab = await AsyncStorage.getItem('@current_tab_screen') || '';
+        //console.log(currentTab);
+        // Update search state
+        await AsyncStorage.multiSet([
+          ['@is_searching', 'true'],
+          ['@search_term', searchQuery.trim()],
+          ['@hop', currentTab]
+        ]);
+        router.push('/(drawer)/(tabs)/hidden');
+        //router.push(`/(drawer)/(tabs)/${currentTab}/search/${searchQuery.trim()}`);
+      }
+    } catch (e) {
+      console.error('Error during search:', e);
+    } finally {
+      setIsSearching(false);
+      setSearchQuery('');
     }
-    setIsSearching(false);
-    setSearchQuery('');
   };
 
   return (
@@ -30,7 +59,7 @@ const HeaderButtons = () => {
           onChangeText={setSearchQuery}
           autoFocus
           onBlur={() => setIsSearching(false)}
-          onSubmitEditing={handleSearchSubmit} // Handles submission when enter key is pressed
+          onSubmitEditing={handleSearchSubmit}
           returnKeyType="search"
         />
       ) : (
@@ -38,14 +67,10 @@ const HeaderButtons = () => {
           <FontAwesome name="search" size={24} color="black" />
         </TouchableOpacity>
       )}
-
     </View>
   );
 };
 
-
-
-// Custom drawer content
 const CustomDrawerContent = (props) => {
   return (
     <DrawerContentScrollView {...props}>
@@ -86,6 +111,10 @@ const CustomDrawerContent = (props) => {
 };
 
 export default function Layout() {
+  useEffect(() => {
+    initializeAsyncStorage();
+  }, []);
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <Drawer drawerContent={(props) => <CustomDrawerContent {...props} />}>
@@ -93,13 +122,12 @@ export default function Layout() {
           name="(tabs)"
           options={{
             title: '',
-            headerRight: () => <HeaderButtons />, // Use HeaderButtons component here
+            headerRight: () => <HeaderButtons />,
           }}
         />
       </Drawer>
 
-      {/* Floating round button */}
-      <Link href = "/(content)/add" asChild>
+      <Link href="/(content)/add" asChild>
         <TouchableOpacity onPress={() => {}} style={styles.roundButton}>
           <FontAwesome name="plus" size={30} color="white" />
         </TouchableOpacity>
@@ -110,11 +138,11 @@ export default function Layout() {
 
 const styles = StyleSheet.create({
   headerButtonsContainer: {
-    flexDirection: 'row',      // Ensures buttons are in a row
+    flexDirection: 'row',
     marginRight: 10,
   },
   button: {
-    marginHorizontal: 10,      // Adds horizontal spacing between buttons
+    marginHorizontal: 10,
   },
   roundButton: {
     position: 'absolute',
@@ -128,26 +156,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   headerContainer: {
-    flexDirection: 'row',       // Aligns image and text in a row
-    alignItems: 'center',       // Centers the items vertically
-    marginBottom: 15,           // Adds space below the header
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
   },
   image: {
-    width: 70,   // Set your desired width
-    height: 100,  // Set your desired height
-    marginRight: 10, // Adds space between the image and text
+    width: 70,
+    height: 100,
+    marginRight: 10,
   },
   headerText: {
-    fontSize: 18, // You can adjust this to your preference
-    fontWeight: 'bold', // You can adjust this to your preference
-    color: 'black', // Text color
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'black',
   },
   searchBox: {
-    // Style for the TextInput search box
     borderColor: 'gray',
     borderWidth: 1,
     padding: 8,
     borderRadius: 5,
-    marginRight: 8,  // Adjust as needed to match spacing with buttons
+    marginRight: 8,
   },
 });

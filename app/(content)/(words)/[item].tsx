@@ -1,10 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { Text, View, StyleSheet, TouchableOpacity, Alert, TextInput, ScrollView } from 'react-native';
+import { Text, View, StyleSheet, TouchableOpacity, Alert, TextInput, ScrollView, Modal} from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { FontAwesome, AntDesign } from '@expo/vector-icons';
 import {useRouter} from 'expo-router'
 import { useRoute } from '@react-navigation/native';
-
+const FIELD_OPTIONS = {
+  tone: ['Neutral', 'Formal', 'Informal', 'Humorous', 'Sarcastic', 'Poetic'],
+  mode: ['Written', 'Spoken', 'Both'],
+  register: ['Technical', 'Slang', 'Colloquial', 'Vulgar', 'Academic', 'Literary'],
+  dialect: ['Standard', 'Northern', 'Southern', 'Eastern', 'Western', 'Central'],
+  nuance: ['Positive', 'Negative', 'Neutral', 'Strong', 'Weak', 'Emotional']
+};
 export default function ItemScreen() {
   const DEFAULT_WORD_DATA = {
     word: '',
@@ -28,6 +34,122 @@ export default function ItemScreen() {
   const [conceptSuggestions, setConceptSuggestions] = useState([]);
   const [filteredConcepts, setFilteredConcepts] = useState([]);
 
+  const [modalVisible, setModalVisible] = useState(false);
+  const [currentField, setCurrentField] = useState('');
+  const [currentValue, setCurrentValue] = useState('');
+
+
+  const [editingExample, setEditingExample] = useState<string | null>(null);
+  const [editingDefinition, setEditingDefinition] = useState<string | null>(null);
+  const [editedExampleText, setEditedExampleText] = useState('');
+  const [editedDefinitionText, setEditedDefinitionText] = useState('');
+
+  const handleEditExample = (example: string) => {
+    setEditingExample(example);
+    setEditedExampleText(example);
+  };
+
+  // Function to save edited example
+  const saveEditedExample = async () => {
+    if (!editedExampleText.trim()) {
+      Alert.alert('Error', 'Example cannot be empty');
+      return;
+    }
+
+    try {
+      const storedItem = await AsyncStorage.getItem(key);
+      if (!storedItem) return;
+
+      const parsedItem = JSON.parse(storedItem);
+      if (!Array.isArray(parsedItem.examples)) return;
+
+      // Update the example in the array
+      const index = parsedItem.examples.findIndex((e: string) => e === editingExample);
+      if (index !== -1) {
+        parsedItem.examples[index] = editedExampleText.trim();
+        await AsyncStorage.setItem(key, JSON.stringify(parsedItem));
+        fetchData();
+      }
+
+      setEditingExample(null);
+      setEditedExampleText('');
+    } catch (error) {
+      console.error("Error saving edited example:", error);
+      Alert.alert('Error', 'Failed to save example');
+    }
+  };
+
+  // Function to handle editing a definition
+  const handleEditDefinition = (definition: string) => {
+    setEditingDefinition(definition);
+    setEditedDefinitionText(definition);
+  };
+
+  // Function to save edited definition
+  const saveEditedDefinition = async () => {
+    if (!editedDefinitionText.trim()) {
+      Alert.alert('Error', 'Definition cannot be empty');
+      return;
+    }
+
+    try {
+      const storedItem = await AsyncStorage.getItem(key);
+      if (!storedItem) return;
+
+      const parsedItem = JSON.parse(storedItem);
+      if (!Array.isArray(parsedItem.definitions)) return;
+
+      // Update the definition in the array
+      const index = parsedItem.definitions.findIndex((d: string) => d === editingDefinition);
+      if (index !== -1) {
+        parsedItem.definitions[index] = editedDefinitionText.trim();
+        await AsyncStorage.setItem(key, JSON.stringify(parsedItem));
+        fetchData();
+      }
+
+      setEditingDefinition(null);
+      setEditedDefinitionText('');
+    } catch (error) {
+      console.error("Error saving edited definition:", error);
+      Alert.alert('Error', 'Failed to save definition');
+    }
+  };
+
+  // Function to handle pressing an info item
+  const handleInfoItemPress = (field: string, currentValue: string) => {
+    setCurrentField(field);
+    setCurrentValue(currentValue);
+    setModalVisible(true);
+  };
+
+  // Function to update a field value
+  const updateFieldValue = async (newValue: string) => {
+    try {
+      const storedItem = await AsyncStorage.getItem(key);
+      if (!storedItem) return;
+
+      const parsedItem = JSON.parse(storedItem);
+      parsedItem[currentField] = newValue;
+      
+      await AsyncStorage.setItem(key, JSON.stringify(parsedItem));
+      fetchData();
+      setModalVisible(false);
+    } catch (error) {
+      console.error("Error updating field:", error);
+      Alert.alert('Error', 'Failed to update field');
+    }
+  };
+
+  // Modify your infoRow items to be pressable
+  const renderInfoItem = (label: string, field: string, value: string) => (
+    <TouchableOpacity 
+      style={styles.infoItem}
+      onPress={() => handleInfoItemPress(field, value)}
+    >
+      <Text style={styles.infoLabel}>{label}:</Text>
+      <Text style={styles.infoText}>{value || 'Not set'}</Text>
+    </TouchableOpacity>
+  );
 
   useEffect(() => {
     const loadSuggestions = async () => {
@@ -361,31 +483,20 @@ export default function ItemScreen() {
 
       {/* Basic Info Row */}
       <View style={styles.infoRow}>
-        <View style={styles.infoItem}> 
-          <Text style={styles.infoLabel}>Tone:</Text>
-          <Text style={styles.infoText}>{storedData.tone}</Text>
-        </View>
-        <View style={styles.infoItem}>
-          <Text style={styles.infoLabel}>Mode:</Text>
-          <Text style={styles.infoText}>{storedData.mode}</Text>
-        </View>
+        {renderInfoItem('Tone', 'tone', storedData.tone)}
+        {renderInfoItem('Mode', 'mode', storedData.mode)}
       </View>
 
       <View style={styles.infoRow}>
-        <View style={styles.infoItem}>
-          <Text style={styles.infoLabel}>Register:</Text>
-          <Text style={styles.infoText}>{storedData.register}</Text>
-        </View>
-        <View style={styles.infoItem}>
-          <Text style={styles.infoLabel}>Dialect:</Text>
-          <Text style={styles.infoText}>{storedData.dialect}</Text>
-        </View>
+        {renderInfoItem('Register', 'register', storedData.register)}
+        {renderInfoItem('Dialect', 'dialect', storedData.dialect)}
       </View>
 
-      {/* Nuance */}
-      <View style={styles.sectionContainer}>
-        <Text style={styles.sectionLabel}>Nuance:</Text>
-        <Text style={styles.nuanceText}>{storedData.nuance}</Text>
+      <View style={styles.infoRow}>
+        {renderInfoItem('Nuance', 'nuance', storedData.nuance)}
+        <View style={styles.infoItem}>
+          {/* Empty view to maintain layout */}
+        </View>
       </View>
 
       {/* Definitions */}
@@ -393,10 +504,41 @@ export default function ItemScreen() {
         <Text style={styles.sectionLabel}>Definitions:</Text>
         {storedData.definitions.map((definition, index) => (
           <View key={index} style={styles.definitionItem}>
-            <View style={styles.definitionContent}>
-              <Text style={styles.listBullet}>•</Text>
-              <Text style={styles.listText}>{definition}</Text>
-            </View>
+            {editingDefinition === definition ? (
+              <View style={styles.editContainer}>
+                <TextInput
+                  style={styles.editInput}
+                  value={editedDefinitionText}
+                  onChangeText={setEditedDefinitionText}
+                  multiline
+                  autoFocus
+                />
+                <View style={styles.editButtons}>
+                  <TouchableOpacity 
+                    onPress={saveEditedDefinition}
+                    style={styles.saveButton}
+                  >
+                    <Text style={styles.saveButtonText}>Save</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    onPress={() => setEditingDefinition(null)}
+                    style={styles.cancelEditButton}
+                  >
+                    <Text style={styles.cancelEditButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.definitionContent}>
+                <Text style={styles.listBullet}>•</Text>
+                <TouchableOpacity
+                  style={styles.editableTextContainer}
+                  onPress={() => handleEditDefinition(definition)}
+                >
+                  <Text style={styles.listText}>{definition}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
             <TouchableOpacity 
               onPress={() => deleteDefinition(definition)}
               style={styles.deleteButton}
@@ -424,28 +566,56 @@ export default function ItemScreen() {
         </View>
       </View>
       
-        
-
-      
-
+      {/* Examples */}
       <View style={styles.sectionContainer}>
-      <Text style={styles.sectionLabel}>Examples:</Text>
-      {storedData.examples.map((example, index) => (
-        <View key={index} style={styles.exampleItem}>
-          <View style={styles.exampleContent}>
-            <Text style={styles.listBullet}>•</Text>
-            <Text style={styles.listText}>{example}</Text>
+        <Text style={styles.sectionLabel}>Examples:</Text>
+        {storedData.examples.map((example, index) => (
+          <View key={index} style={styles.exampleItem}>
+            {editingExample === example ? (
+              <View style={styles.editContainer}>
+                <TextInput
+                  style={styles.editInput}
+                  value={editedExampleText}
+                  onChangeText={setEditedExampleText}
+                  multiline
+                  autoFocus
+                />
+                <View style={styles.editButtons}>
+                  <TouchableOpacity 
+                    onPress={saveEditedExample}
+                    style={styles.saveButton}
+                  >
+                    <Text style={styles.saveButtonText}>Save</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    onPress={() => setEditingExample(null)}
+                    style={styles.cancelEditButton}
+                  >
+                    <Text style={styles.cancelEditButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.exampleContent}>
+                <Text style={styles.listBullet}>•</Text>
+                <TouchableOpacity
+                  style={styles.editableTextContainer}
+                  onPress={() => handleEditExample(example)}
+                >
+                  <Text style={styles.listText}>{example}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            <TouchableOpacity 
+              onPress={() => deleteExample(example)}
+              style={styles.deleteButton}
+            >
+              <FontAwesome name="trash" size={16} color="#e74c3c" />
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity 
-            onPress={() => deleteExample(example)}
-            style={styles.deleteButton}
-          >
-            <FontAwesome name="trash" size={16} color="#e74c3c" />
-          </TouchableOpacity>
-        </View>
-      ))}
+        ))}
       
-      
+      {/* Add New Example Input */}
       <View style={styles.addDefinitionContainer}> 
         <TextInput
           style={styles.definitionInput} 
@@ -515,6 +685,41 @@ export default function ItemScreen() {
     </View>
       )}
     </View>
+
+    <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select {currentField}</Text>
+            
+            {FIELD_OPTIONS[currentField]?.map((option) => (
+              <TouchableOpacity
+                key={option}
+                style={[
+                  styles.optionButton,
+                  currentValue === option && styles.selectedOption
+                ]}
+                onPress={() => updateFieldValue(option)}
+              >
+                <Text style={styles.optionText}>{option}</Text>
+              </TouchableOpacity>
+            ))}
+
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={() => setModalVisible(false)}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+
     </ScrollView>
   );
 }
@@ -528,12 +733,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   
-  // Container
-  container: {
-    flex: 1,
-    padding: 20,
-    backgroundColor: '#f5f5f5',
-  },
+  
 
   // Word Section
   wordContainer: {
@@ -582,30 +782,6 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
   },
 
-  // Nuance
-  nuanceText: {
-    fontSize: 16,
-    color: '#555',
-    fontStyle: 'italic',
-    lineHeight: 22,
-  },
-
-  // List Items (Definitions, Examples)
-  listItem: {
-    flexDirection: 'row',
-    marginBottom: 8,
-  },
-  listBullet: {
-    marginRight: 8,
-    color: '#666',
-  },
-  listText: {
-    flex: 1,
-    fontSize: 16,
-    color: '#555',
-    lineHeight: 22,
-  },
-
   // Main Concepts
   conceptsContainer: {
     flexDirection: 'row',
@@ -628,12 +804,7 @@ const styles = StyleSheet.create({
   },
 
   // No Data
-  noDataText: {
-    fontStyle: 'italic',
-    color: '#999',
-    textAlign: 'center',
-    marginTop: 20,
-  },
+ 
   exampleItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -685,25 +856,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 20,
   },
-  exampleInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    backgroundColor: 'white',
-    fontSize: 16,
-    marginRight: 10,
-    minHeight: 50,
-    textAlignVertical: 'top',
+  listBullet: {
+    marginRight: 8,
+    color: '#666',
   },
-  addExampleButton: {
-    backgroundColor: '#3498db',
-    width: 50,
-    height: 50,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
+  listText: {
+    flex: 1,
+    fontSize: 16,
+    color: '#555',
+    lineHeight: 22,
   },
 
   addDefinitionContainer: {
@@ -752,5 +913,90 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#3498db',
   },
-  
+   // Modal styles
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalContent: {
+    width: '80%',
+    backgroundColor: 'white',
+    borderRadius: 10,
+    padding: 20,
+    maxHeight: '70%',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  optionButton: {
+    padding: 12,
+    marginVertical: 5,
+    borderRadius: 5,
+    backgroundColor: '#f0f0f0',
+  },
+  selectedOption: {
+    backgroundColor: '#3498db',
+  },
+  optionText: {
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  cancelButton: {
+    marginTop: 15,
+    padding: 12,
+    borderRadius: 5,
+    backgroundColor: '#e74c3c',
+  },
+  cancelButtonText: {
+    color: 'white',
+    textAlign: 'center',
+    fontSize: 16,
+  },
+
+  editContainer: {
+    flex: 1,
+    marginRight: 10,
+  },
+  editInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    backgroundColor: 'white',
+    fontSize: 16,
+    marginBottom: 8,
+    minHeight: 50,
+    textAlignVertical: 'top',
+  },
+  editButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+  },
+  saveButton: {
+    backgroundColor: '#2ecc71',
+    padding: 8,
+    borderRadius: 5,
+    marginLeft: 10,
+  },
+  saveButtonText: {
+    color: 'white',
+  },
+  cancelEditButton: {
+    backgroundColor: '#e74c3c',
+    padding: 8,
+    borderRadius: 5,
+    marginLeft: 10,
+  },
+  cancelEditButtonText: {
+    color: 'white',
+  },
+  editableTextContainer: {
+    flex: 1,
+  },
+
 });

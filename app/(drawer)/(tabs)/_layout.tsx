@@ -47,7 +47,12 @@ export default function TabLayout() {
           ),
         }}
       />
-      
+      <Tabs.Screen
+        name="hidden"
+        options={{
+          href: null,
+        }}
+      />
       
       
     </Tabs>
