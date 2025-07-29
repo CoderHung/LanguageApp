@@ -24,9 +24,11 @@ export default function ItemScreen() {
     mainConcepts: []
   };
   const router = useRouter();
+  // Define the type for route params
+  type RouteParams = { item: string };
   const route = useRoute();
-  // @ts-ignore
-  const key = route.params.item;
+  
+  const key = (route.params as RouteParams).item;
   const [storedData, setStoredData] = useState(DEFAULT_WORD_DATA);
   const [newExample, setNewExample] = useState('');
   const [newDefinition, setNewDefinition] = useState('');
@@ -615,7 +617,7 @@ export default function ItemScreen() {
           </View>
         ))}
       
-      {/* Add New Example Input */}
+      {/* Add New Definition Input */}
       <View style={styles.addDefinitionContainer}> 
         <TextInput
           style={styles.definitionInput} 

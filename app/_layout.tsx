@@ -1,22 +1,27 @@
 import { Stack } from 'expo-router';
+import { useEffect } from 'react';
+import { Platform } from 'react-native';
+import * as NavigationBar from 'expo-navigation-bar';
 
 export default function RootLayout() {
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      NavigationBar.setVisibilityAsync('hidden'); 
+     
+    }
+  }, []);
+
   return (
     <Stack>
-      <Stack.Screen name="(content)" options={{ 
-        headerShown: false,
-        headerBackVisible: true,
-        title: "" // Or whatever title you want
-      }} />
       <Stack.Screen name="(drawer)" options={{ 
         headerShown: false,
         headerBackVisible: true,
-        title: "" // Or whatever title you want
+        title: ""
       }} />
-      <Stack.Screen name="search" options={{ 
+      <Stack.Screen name="content" options={{ 
         headerShown: false,
         headerBackVisible: true,
-        title: "" // Or whatever title you want
+        title: ""
       }} />
     </Stack>
   );

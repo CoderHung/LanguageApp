@@ -8,12 +8,20 @@ import { DrawerContentScrollView, DrawerItem } from '@react-navigation/drawer';
 import { router, Link } from 'expo-router';
 import { Image } from 'expo-image';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import * as XLSX from 'xlsx';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
+import * as DocumentPicker from 'expo-document-picker';
+import * as MediaLibrary from 'expo-media-library';
+import * as IntentLauncher from 'expo-intent-launcher';
+import { StorageAccessFramework } from 'expo-file-system';
+import { Buffer } from 'buffer'; // Needed for writing file
+global.Buffer = Buffer;
 // Initialize AsyncStorage values
 const initializeAsyncStorage = async () => {
   try {
     await AsyncStorage.multiSet([
-      ['@current_tab_screen', ''],
+      ['@current_tab_screen', 'index'],
       ['@search_term', ''],
       ['@is_searching', 'false']
     ]);
@@ -31,7 +39,7 @@ const HeaderButtons = () => {
       if (searchQuery.trim()) {
         // Get current tab screen
         const currentTab = await AsyncStorage.getItem('@current_tab_screen') || '';
-        //console.log(currentTab);
+        
         // Update search state
         await AsyncStorage.multiSet([
           ['@is_searching', 'true'],
@@ -61,6 +69,7 @@ const HeaderButtons = () => {
           onBlur={() => setIsSearching(false)}
           onSubmitEditing={handleSearchSubmit}
           returnKeyType="search"
+          autoCapitalize="none"
         />
       ) : (
         <TouchableOpacity onPress={() => setIsSearching(true)} style={styles.button}>
@@ -70,6 +79,73 @@ const HeaderButtons = () => {
     </View>
   );
 };
+
+
+// Helper to decode storage
+const parseItem = async (key) => {
+  const item = await AsyncStorage.getItem(key);
+  return item ? JSON.parse(item) : null;
+};
+
+const exportToExcel = async () => {
+  try {
+    const words = await parseItem('aOlApM') || [];
+    const concepts = await parseItem('oCrEwZ') || [];
+
+    // WORDS SHEET
+    const wordRows = [];
+    for (const word of words) {
+      const data = await parseItem(word);
+      if (data) {
+        wordRows.push({
+          Word: word,
+          Tone: data.tone,
+          Mode: data.mode,
+          Register: data.register,
+          Nuance: data.nuance,
+          Dialect: data.dialect,
+          Examples: data.examples.join('; '),
+          Definitions: data.definitions.join('; '),
+          MainConcepts: data.mainConcepts.map(c => c.replace('_con', '')).join('; ')
+        });
+      }
+    }
+
+    // CONCEPTS SHEET
+    const conceptRows = [];
+    for (const concept of concepts) {
+      const linkedWords = await parseItem(concept);
+      if (linkedWords) {
+        conceptRows.push({
+          Concept: concept.replace('_con', ''),
+          LinkedWords: linkedWords.join('; ')
+        });
+      }
+    }
+
+    // Create workbook
+    const wb = XLSX.utils.book_new();
+    const wsWords = XLSX.utils.json_to_sheet(wordRows);
+    const wsConcepts = XLSX.utils.json_to_sheet(conceptRows);
+
+    XLSX.utils.book_append_sheet(wb, wsWords, 'Words');
+    XLSX.utils.book_append_sheet(wb, wsConcepts, 'MainConcepts');
+
+    const wbout = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
+    const uri = FileSystem.documentDirectory + 'vocab.xlsx';
+    await FileSystem.writeAsStringAsync(uri, wbout, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+
+    await Sharing.shareAsync(uri);
+  } catch (err) {
+    console.error('Export failed:', err);
+  }
+};
+
+
+
+
 
 const CustomDrawerContent = (props) => {
   return (
@@ -106,6 +182,12 @@ const CustomDrawerContent = (props) => {
           router.push('/');
         }}
       />
+      <DrawerItem
+        icon={() => <FontAwesome name="file-excel-o" size={24} color="black" />}
+        label={"Export to Excel"}
+        onPress={exportToExcel}
+      />
+
     </DrawerContentScrollView>
   );
 };
@@ -127,7 +209,7 @@ export default function Layout() {
         />
       </Drawer>
 
-      <Link href="/(content)/add" asChild>
+      <Link href="/content/add" asChild>
         <TouchableOpacity onPress={() => {}} style={styles.roundButton}>
           <FontAwesome name="plus" size={30} color="white" />
         </TouchableOpacity>

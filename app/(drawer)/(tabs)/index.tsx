@@ -1,12 +1,13 @@
 import React, { useState, useCallback } from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
+import { Button, ScrollView, StyleSheet, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router, useFocusEffect } from 'expo-router';
 import Box from '@/components/Box';
-
+import { LightStyles } from "../../../styles/style"
 export default function VocabularyScreen() {
   const [data, setData] = useState<{ key: string; value: any[] | string }[]>([]);
-
+  const [wasSearchingInitially, setWasSearchingInitially] = useState(false);
+  const styles = LightStyles;
   // Levenshtein distance function for fuzzy search
   function levenshteinDistance(a: string | any[], b: string | any[]) {
     const an = a ? a.length : 0;
@@ -34,71 +35,94 @@ export default function VocabularyScreen() {
   }
 
   const loadData = async () => {
-    try {
-      await AsyncStorage.setItem('@current_tab_screen', '');
+      try {
+        await AsyncStorage.setItem('@current_tab_screen', '');
 
-      // Check search state first
-      const [isSearching, searchTerm] = await Promise.all([
-        AsyncStorage.getItem('@is_searching'),
-        AsyncStorage.getItem('@search_term')
-      ]);
-
-      const wordsListString = await AsyncStorage.getItem("oCrEwZ"); // Get mainConcepts list
-      if (!wordsListString) {
+        // Check search state first
+        const [isSearching, searchTerm] = await Promise.all([
+          AsyncStorage.getItem('@is_searching'),
+          AsyncStorage.getItem('@search_term')
+        ]);
+        setWasSearchingInitially(isSearching === 'true');
+        const wordsListString = await AsyncStorage.getItem("oCrEwZ");
+        if (!wordsListString || wordsListString === '[]') {
           console.warn("No words found in 'oCrEwZ'");
           setData([]);
           return;
-      }
-      
-      const wordsList = JSON.parse(wordsListString); // Parse concepts array
+        }
+        
+        const wordsList = JSON.parse(wordsListString);
 
-      const keyValuePairs = await Promise.all(
-          wordsList.map(async (word) => {
-              const value = await AsyncStorage.getItem(word);
-              return { key: word, value: value ? JSON.parse(value) : "No Data" };
+        const keyValuePairs = await Promise.all(
+          wordsList.map(async (word: string) => {
+            const value = await AsyncStorage.getItem(word);
+
+            return { key: word, value: value ? JSON.parse(value) : "No Data" };
           })
-      );
+        );
 
-      // If not searching or empty search term, return all items
-      if (isSearching !== 'true' || !searchTerm?.trim()) {
-        setData(keyValuePairs);
-        return;
-      }
-      await AsyncStorage.setItem('@is_searching', 'false');
+        // If not searching or empty search term, return all items
+        if (isSearching !== 'true' || !searchTerm?.trim()) {
+          setData(keyValuePairs);
+          return;
+        }
+        await AsyncStorage.setItem('@is_searching', 'false');
 
-      // Implement search logic when in search mode
-      const target = searchTerm.toLowerCase();
-      const targetLength = target.length;
+        // Split search terms by comma and trim whitespace
+        const searchTerms = searchTerm
+          .split(',')
+          .map(term => term.trim())
+          .filter(term => term.length > 0);
 
-      const filteredAndSortedData = keyValuePairs
-        .map(item => {
-          // Remove the "-con" suffix for search comparison
-          const conceptName = item.key.slice(0, -4).toLowerCase();
-          const distance = levenshteinDistance(target, conceptName);
-          const maxLength = Math.max(targetLength, conceptName.length);
-          const similarityRatio = 1 - (distance / maxLength);
-          
-          return {
-            ...item,
-            distance,
-            similarityRatio
-          };
-        })
-        .filter(item => {
-          return item.similarityRatio > 0.7 || item.distance <= 2;
-        })
-        .sort((a, b) => {
+        // Process each search term separately
+        const searchResults = searchTerms.map(term => {
+          const target = term.toLowerCase();
+          const targetLength = target.length;
+
+          return keyValuePairs
+            .map(item => {
+              const conceptName = item.key.slice(0, -4).toLowerCase();
+              const distance = levenshteinDistance(target, conceptName);
+              const maxLength = Math.max(targetLength, conceptName.length);
+              const similarityRatio = 1 - (distance / maxLength);
+              
+              return {
+                ...item,
+                distance,
+                similarityRatio,
+                matchedTerm: term
+              };
+            })
+            .filter(item => {
+              return item.similarityRatio > 0.7 || item.distance <= 2;
+            });
+        });
+
+        // Combine results from all search terms
+        const combinedResults = searchResults.flat();
+
+        // Remove duplicates and keep the highest similarity match for each concept
+        const uniqueResults = combinedResults.reduce((acc, current) => {
+          const existing = acc.find(item => item.key === current.key);
+          if (!existing || current.similarityRatio > existing.similarityRatio) {
+            return [...acc.filter(item => item.key !== current.key), current];
+          }
+          return acc;
+        }, []);
+
+        // Sort by highest similarity
+        const filteredAndSortedData = uniqueResults.sort((a, b) => {
           if (a.similarityRatio !== b.similarityRatio) {
             return b.similarityRatio - a.similarityRatio;
           }
           return a.key.length - b.key.length;
         });
 
-      setData(filteredAndSortedData);
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    }
-  };
+        setData(filteredAndSortedData);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      }
+    };
 
   useFocusEffect(
       useCallback(() => {
@@ -138,24 +162,27 @@ export default function VocabularyScreen() {
   };
   
   return(
+    <View style={{ flex: 1 }}>
+                {wasSearchingInitially && (
+                  <View style={{ position: 'relative', top: 1, zIndex: 1 }}>
+                    <Button title="Go Back" onPress={() => router.push('/(drawer)/(tabs)/hidden')} />
+                  </View>
+                )}
   <ScrollView contentContainerStyle={styles.container}>
     {data.map(({ key, value }) => (
       <Box 
-        key={key} 
+        // @ts-ignore
+        key ={key}
         storageKey={key} 
         title={key.slice(0,-4)} 
         description={Array.isArray(value) ? value.join(', ') : value} 
         value={""} 
         onDelete={() => deleteKey(key)} 
         isSpecialRoute={true}
-      />
+      /> 
     ))}
   </ScrollView>
+  </View>
   )
 }
 
-const styles = StyleSheet.create({
-  container: {
-    padding: 16,
-  },
-});

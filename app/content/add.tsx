@@ -148,7 +148,7 @@ export default function Add() {
       };
     
     const removeDefinitions = (index) => {
-        setDefinitions(Definitions.filter((_, i) => i !== index));
+        setDefinitions(MainConcepts.filter((_, i) => i !== index));
     };
 
     const addMainConcept = () => {
@@ -159,7 +159,7 @@ export default function Add() {
     };
 
     const removeMainConcepts = (index) => {
-        setMainConcepts(Definitions.filter((_, i) => i !== index));
+        setMainConcepts(MainConcepts.filter((_, i) => i !== index));
     };
 
     const addTestingData = async () => {
@@ -280,7 +280,7 @@ export default function Add() {
             keyboardVerticalOffset={80}
         >
             <ScrollView contentContainerStyle={styles.scrollContainer}>
-            <View style={styles.testingButtonsContainer}>
+            {/*<View style={styles.testingButtonsContainer}>
                 <View style={styles.testingButton}>
                     <Button 
                         title="Clear All Data" 
@@ -295,7 +295,8 @@ export default function Add() {
                         color="#3498db"
                     />
                 </View>
-            </View>
+            </View> 
+            */}
 
                 <Text style={styles.sectionTitle}>Word Information</Text>
                 <TextInput

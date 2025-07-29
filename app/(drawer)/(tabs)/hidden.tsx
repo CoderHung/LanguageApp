@@ -9,12 +9,20 @@ export default function HiddenScreen() {
   const loadData = async () => {
     try {
       const hop = await AsyncStorage.getItem('@hop');
-      if (hop !== null && hop !== '' ) {
-        router.push(`/(drawer)/(tabs)/${hop}`);
-      }
-      else {
-        router.push(`/(drawer)/(tabs)/`);
-      }
+      if (hop !== null) {
+        if (hop === 'concepts') {
+          router.push(`/(drawer)/(tabs)/concepts`);
+        }
+        if (hop === 'definitions') {
+          router.push(`/(drawer)/(tabs)/definitions`);
+        }
+        if (hop === 'examples') {
+          router.push(`/(drawer)/(tabs)/examples`);
+        }
+        
+      } else {
+      router.push('/(drawer)/(tabs)');
+    }
     } catch (error) {
         console.error("Error fetching data:", error);
     }
@@ -22,6 +30,7 @@ export default function HiddenScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      
       loadData();
     }, [])
   );
@@ -30,6 +39,5 @@ export default function HiddenScreen() {
 
   return (
     <View></View>
-
   );
 }

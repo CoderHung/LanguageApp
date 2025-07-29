@@ -3,13 +3,11 @@ import { ScrollView, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from 'expo-router';
 import Box from '@/components/Box';
-import { useRoute } from '@react-navigation/native';
-
+import { useLocalSearchParams } from 'expo-router';
 export default function ItemsScreen() {
   const [data, setData] = useState<{ key: string; value: any }[]>([]);
-  const route = useRoute();
-  // @ts-ignore
-  const key = route.params.item;  
+  const { item } = useLocalSearchParams();
+  let key = Array.isArray(item) ? item[0] : item;
   const loadData = async () => {
     try {
         let wordsList = await AsyncStorage.getItem(key); // Get words list of concept
@@ -19,8 +17,12 @@ export default function ItemsScreen() {
             return;
         }
         wordsList = JSON.parse(wordsList);
+        if (!Array.isArray(wordsList)) {
+            console.warn("Words list is not an array");
+            setData([]);
+            return;
+        }
         const keyValuePairs = await Promise.all(
-            // @ts-ignore
             wordsList.map(async (word: string) => {
                 const value = await AsyncStorage.getItem(word);
                 return { key: word, value: value ? JSON.parse(value) : "No Data" };
@@ -35,6 +37,7 @@ export default function ItemsScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      
       loadData();
     }, [])
   );

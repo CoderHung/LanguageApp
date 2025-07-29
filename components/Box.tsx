@@ -12,7 +12,7 @@ type BoxProps = {
   isSpecialRoute?: boolean; // New boolean prop
 };
 
-const Box = ({ 
+const Box = ({
   title, 
   description, 
   value, 
@@ -38,9 +38,9 @@ const Box = ({
 
     // Navigate to different routes based on isSpecialRoute
     if (isSpecialRoute) {
-      router.push(`/(content)/${storageKey}`);
+      router.push(`/content/${storageKey}`);
     } else {
-      router.push(`/(content)/(words)/${storageKey}`);
+      router.push(`/content/(words)/${storageKey}`);
     }
   };
 
